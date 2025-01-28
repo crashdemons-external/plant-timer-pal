@@ -2,7 +2,8 @@ import { Plant } from "@/types/plant";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, differenceInHours, differenceInMinutes, differenceInSeconds } from "date-fns";
+import { useState, useEffect } from "react";
 
 interface PlantCardProps {
   plant: Plant;
@@ -11,6 +12,39 @@ interface PlantCardProps {
 
 const PlantCard = ({ plant, onWater }: PlantCardProps) => {
   const { toast } = useToast();
+  const [timeRemaining, setTimeRemaining] = useState({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0
+  });
+
+  useEffect(() => {
+    const calculateTimeRemaining = () => {
+      const now = new Date();
+      const lastWatered = new Date(plant.lastWatered);
+      const nextWatering = new Date(lastWatered);
+      nextWatering.setDate(nextWatering.getDate() + plant.interval);
+
+      if (now >= nextWatering) {
+        setTimeRemaining({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+
+      const days = differenceInDays(nextWatering, now);
+      const hours = differenceInHours(nextWatering, now) % 24;
+      const minutes = differenceInMinutes(nextWatering, now) % 60;
+      const seconds = differenceInSeconds(nextWatering, now) % 60;
+
+      setTimeRemaining({ days, hours, minutes, seconds });
+    };
+
+    calculateTimeRemaining();
+    const timer = setInterval(calculateTimeRemaining, 1000);
+
+    return () => clearInterval(timer);
+  }, [plant.lastWatered, plant.interval]);
+
   const daysSinceWatered = differenceInDays(new Date(), new Date(plant.lastWatered));
   const daysUntilWatering = plant.interval - daysSinceWatered;
   const needsWater = daysUntilWatering <= 0;
@@ -45,6 +79,26 @@ const PlantCard = ({ plant, onWater }: PlantCardProps) => {
               ? "Needs water now!"
               : `Water in ${daysUntilWatering} day${daysUntilWatering !== 1 ? "s" : ""}`}
           </p>
+          {!needsWater && (
+            <div className="grid grid-cols-4 gap-2 text-center text-sm text-gray-600">
+              <div>
+                <div className="font-semibold">{timeRemaining.days}</div>
+                <div className="text-xs">Days</div>
+              </div>
+              <div>
+                <div className="font-semibold">{timeRemaining.hours}</div>
+                <div className="text-xs">Hours</div>
+              </div>
+              <div>
+                <div className="font-semibold">{timeRemaining.minutes}</div>
+                <div className="text-xs">Mins</div>
+              </div>
+              <div>
+                <div className="font-semibold">{timeRemaining.seconds}</div>
+                <div className="text-xs">Secs</div>
+              </div>
+            </div>
+          )}
           <Button 
             onClick={handleWater}
             className="w-full bg-plant-500 hover:bg-plant-600"
